@@ -1,8 +1,9 @@
 import { createEstimateRunner, estimateAccess, EstimateError } from './procurement.mjs';
 import { CacheError, createRedisCache } from './redis-cache.mjs';
 import { requestOriginAllowed } from './request-origin.mjs';
+import { readBody, bodyFailure } from './read-body.mjs';
 
-export function procurementMiddleware(getEnv, rules, catalog) {
+export function procurementMiddleware(getEnv, rules, catalog, { bodyIdleMs } = {}) {
   const cache = createRedisCache({ getEnv });
   const run = createEstimateRunner({ env: getEnv, rules, catalog, persistentCache: cache });
   const middleware = async (req, res, next) => {
@@ -21,11 +22,12 @@ export function procurementMiddleware(getEnv, rules, catalog) {
     const cancel = () => controller.abort();
     res.once('close', cancel);
     try {
-      let content = '';
-      for await (const chunk of req) {
-        content += chunk;
-        if (content.length > 16384) return send(413, { error: 'The procurement request is too large.' });
+      const read = await readBody(req, { idleMs: bodyIdleMs });
+      if (read.error) {
+        const [status, error] = bodyFailure(read.error, 'procurement');
+        return send(status, { error });
       }
+      const content = read.text;
       let body;
       try { body = JSON.parse(content); } catch { return send(400, { error: 'Send a valid JSON procurement request.' }); }
       send(200, await run(body, { signal: controller.signal }));
