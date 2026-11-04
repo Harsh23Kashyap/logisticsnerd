@@ -93,7 +93,9 @@ class LotRiskTests(PostgresCase):
     def test_read_only_and_current_balance_label(self):
         self.receive('soon','2026-11-05')
         before=self.conn.execute('SELECT count(*) n FROM logistics.command_requests').fetchone()['n']
+        summary_before=stock.stock_summary(self.conn,self.item,self.loc)
         r=self.report()
+        self.assertEqual(stock.stock_summary(self.conn,self.item,self.loc),summary_before)
         self.assertEqual(r['balance_basis'],'current')
         self.assertEqual(self.report(),r)
         self.assertEqual(self.conn.execute('SELECT count(*) n FROM logistics.command_requests').fetchone()['n'],before)
