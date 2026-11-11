@@ -24,6 +24,6 @@ export default defineConfig(({ mode }) => {
         server.httpServer?.once('close', () => { void procurement.close(); });
       },
     }],
-    build: { rollupOptions: { input: { main: resolve(import.meta.dirname, 'index.html'), shipping: resolve(import.meta.dirname, 'shipping-lab.html') } } },
+    build: { rollupOptions: { input: { main: resolve(import.meta.dirname, 'index.html'), shipping: resolve(import.meta.dirname, 'shipping-lab.html'), procurementPlan: resolve(import.meta.dirname, 'procurement-plan.html') } } },
   };
 });

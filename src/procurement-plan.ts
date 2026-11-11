@@ -1,0 +1,30 @@
+import './procurement-plan.css';
+import { planProcurement } from './domain/multi-item';
+import type { ProcurementRequest, SupplierQuote, PurchasingPreference } from './domain/model';
+const sample={request:{id:'fixture-request',buyerId:'local-review',createdAt:'2026-11-11',maxBudgetCents:650000,selectedSupplierIds:['metro','comfort','budget'],items:[
+ {id:'chairs',name:'Office chairs',quantity:50,requiredDate:'2026-12-15'},
+ {id:'paper',name:'Printer paper reams',quantity:100,requiredDate:'2026-12-10'}]},quotes:[
+ {id:'q-metro',requestId:'fixture-request',supplierId:'metro',submittedAt:'2026-11-11',items:[{requestedItemId:'chairs',availableQuantity:50,price:{kind:'total',cents:450000},expectedDate:'2026-12-12'},{requestedItemId:'paper',availableQuantity:100,price:{kind:'total',cents:60000},expectedDate:'2026-12-08'}]},
+ {id:'q-comfort',requestId:'fixture-request',supplierId:'comfort',submittedAt:'2026-11-11',items:[{requestedItemId:'chairs',availableQuantity:50,price:{kind:'total',cents:520000},expectedDate:'2026-12-10'},{requestedItemId:'paper',availableQuantity:100,price:{kind:'total',cents:55000},expectedDate:'2026-12-09'}]},
+ {id:'q-budget',requestId:'fixture-request',supplierId:'budget',submittedAt:'2026-11-11',items:[{requestedItemId:'chairs',availableQuantity:35,price:{kind:'total',cents:380000},expectedDate:'2026-12-11'},{requestedItemId:'paper',availableQuantity:100,price:{kind:'total',cents:50000},expectedDate:'2026-12-08'}]}]};
+function el<K extends keyof HTMLElementTagNameMap>(tag:K,text?:string):HTMLElementTagNameMap[K]{const n=document.createElement(tag);if(text)n.textContent=text;return n;}
+const root=document.querySelector<HTMLElement>('#plan-app')!;
+const nav=el('a','← One-item supplier demo');nav.href='/';root.append(nav,el('p','LOGISTICSNERD · LOCAL PLANNING'),el('h1','One request. Every item accounted for.'),el('p','Compare independent whole-line offers across a basket. Review quantities, dates and the combined budget before making any decision.'));
+const notice=el('aside','Sample data is fictional. No suppliers contacted. No orders, labels or payments are created. JSON stays in this page memory and is cleared on reload. All prices are USD cents with all charges assumed included.');root.append(notice);
+const grid=el('div');grid.className='workspace';const input=el('section');const output=el('section');output.setAttribute('aria-live','polite');
+input.append(el('h2','Request and supplier offers'),el('p','Paste an object with request and quotes. Each quote can omit items it cannot offer. Item IDs, not display names, link offers to requests.'));
+const label=el('label','Procurement JSON');label.htmlFor='source-json';const area=el('textarea');area.id='source-json';area.spellcheck=false;area.value=JSON.stringify(sample,null,2);input.append(label,area);
+const prefLabel=el('label','Purchasing preference');prefLabel.htmlFor='preference';const preference=el('select');preference.id='preference';for(const [value,text]of[['lowest_cost','Lowest cost per item'],['earliest_delivery','Earliest delivery per item']]){const o=el('option',text);o.value=value;preference.append(o);}
+const button=el('button','Review basket');button.type='button';const restore=el('button','Restore fictional sample');restore.type='button';restore.className='secondary';input.append(prefLabel,preference,button,restore);
+const money=(cents:number)=>new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'}).format(cents/100);
+function review(){output.replaceChildren(el('h2','Basket review'));try{
+ if(area.value.length>250000)throw new Error('Keep the local input below 250,000 characters.');
+ const data=JSON.parse(area.value) as {request:ProcurementRequest;quotes:SupplierQuote[]};
+ const plan=planProcurement(data.request,data.quotes,preference.value as PurchasingPreference);
+ const state=el('p',plan.outcome==='complete'?'Complete independent-line plan':plan.outcome==='over_budget'?'Selected plan exceeds the basket budget':'Incomplete: at least one item has no feasible whole-line offer');state.className='status '+plan.outcome;output.append(state);
+ output.append(el('p',plan.totalCents===null?'Complete basket total unavailable. Partial selections are not a funded plan.':`Basket total: ${money(plan.totalCents)} · Budget: ${plan.budgetCents===null?'Not set':money(plan.budgetCents)}`));
+ output.append(el('p',plan.interpretation));
+ for(const item of plan.items){const card=el('article');card.append(el('h3',item.itemName));const selected=plan.selected.find(x=>x.itemId===item.itemId);card.append(el('p',selected?`Review selection: ${selected.supplierId} · ${money(selected.totalCents)} · ${selected.expectedDate}`:'No feasible whole-line offer.'));if(item.comparison.recommendedSupplierIds.length>1)card.append(el('p','Tied best offers: '+item.comparison.recommendedSupplierIds.join(', ')+'. Displayed selection uses supplier ID order, not an endorsement.'));
+ const table=el('table');const head=el('tr');for(const text of['Supplier','Total','Delivery','Assessment'])head.append(el('th',text));const thead=el('thead');thead.append(head);table.append(thead);const body=el('tbody');for(const quote of item.comparison.evaluations){const row=el('tr');for(const text of[quote.supplierId,money(quote.totalCents),quote.expectedDate,quote.feasible?'Meets quantity and date':quote.rejections.map(r=>r.code==='quantity'?`Only ${r.actual}; needs ${r.required}`:`Delivery ${r.actual}; needs ${r.required}`).join('; ')])row.append(el('td',text));body.append(row);}table.append(body);card.append(table);if(!item.comparison.evaluations.length)card.append(el('p','No offers for this item.'));output.append(card);}
+ }catch(error){output.append(el('p','Cannot compare this input: '+(error instanceof Error?error.message:'Invalid request.')));}}
+button.addEventListener('click',review);restore.addEventListener('click',()=>{area.value=JSON.stringify(sample,null,2);review();});grid.append(input,output);root.append(grid,el('footer','Planning only. No split quantities, bundle pricing, stock reservation or OperationsNerd module wiring. Existing one-item and provider flows are unchanged.'));review();

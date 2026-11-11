@@ -268,3 +268,16 @@ SMKlog does not accept our planned pickup date, so its reported dates are displa
 **Live comparison status:** SMKlog was probed and denied access. EasyPost and AfterShip authenticated tests await credentials. No winning provider has been established. See the official [SMKlog guide](https://smklog.com/api), [EasyPost shipment API](https://docs.easypost.com/docs/shipments), [SmartRate delivery dates](https://docs.easypost.com/docs/shipments/shipping-smartrate), and [AfterShip prediction API](https://www.aftership.com/docs/tracking/1o2zu0jrca785-prediction-for-the-estimated-delivery-date).
 
 Local research and build-planning documents are intentionally excluded from version control by `.gitignore`.
+
+## Local multi-item planning workspace
+
+Open `/procurement-plan.html` to compare explicit multi-item requests and supplier
+quotes without contacting a provider. The page matches offers by item ID, selects
+one whole-line offer per item and checks the combined basket budget. Missing or
+infeasible items stay visible and block a complete-total claim. All ties and
+per-line quantity/date failures remain available for review. The fictional sample
+is not live inventory or supplier pricing. No order or stock change is made.
+
+See [multi-item planning policy and limits](docs/MULTI_ITEM_PLANNING.md). This page
+is separate from the original one-item demo and does not add OperationsNerd core
+wiring, an importer, split quantities or bundle-price optimization.
