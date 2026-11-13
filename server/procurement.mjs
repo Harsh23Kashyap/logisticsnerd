@@ -153,7 +153,7 @@ async function callModel(config, key, input, asOfDate, fetcher, timeoutMs, outer
   let output;
   try { output = JSON.parse(choice.message.content); } catch { throw invalidOutput(); }
   const usage = completion.usage;
-  return { output: validateModelOutput(output, input, asOfDate), usage: { inputTokens: Number.isSafeInteger(usage?.prompt_tokens) ? usage.prompt_tokens : null, outputTokens: Number.isSafeInteger(usage?.completion_tokens) ? usage.completion_tokens : null } };
+  return { output: validateModelOutput(output, input, asOfDate), usage: { inputTokens: Number.isSafeInteger(usage?.prompt_tokens) && usage.prompt_tokens >= 0 ? usage.prompt_tokens : null, outputTokens: Number.isSafeInteger(usage?.completion_tokens) && usage.completion_tokens >= 0 ? usage.completion_tokens : null } };
 }
 
 function abortableDelay(milliseconds, signal) {
