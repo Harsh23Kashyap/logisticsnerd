@@ -7,3 +7,5 @@ Database connections use direct PostgreSQL and certificate-verified TLS. Set `ss
 BACKUP_S3_* settings enable durable archive upload before schema changes. An upload failure prevents backup completion and schema upgrade. Each archive has a SHA256 manifest. The private bucket survives app redeploys; it is in the same Neon project and is not an independent disaster-recovery provider. Local filesystem copies are temporary on Render Free.
 
 Render free services sleep and share monthly runtime/build/transfer quotas. Neon Free also limits compute, storage and transfer. No paid plan or autoscaling upgrade is authorized. Keep synthetic demo records separate from real business data.
+
+Set APP_ORIGIN explicitly to the actual HTTPS service URL returned by Render before the first successful deploy. Do not rely on URL inference during initial service creation.
