@@ -4,6 +4,7 @@
 # Dependencies, build output, and local files.
 node_modules/
 dist/
+dist-server/
 coverage/
 .DS_Store
 .env
@@ -16,3 +17,5 @@ __pycache__/
 *.py[cod]
 .pytest_cache/
 supabase/.temp/
+
+.local/

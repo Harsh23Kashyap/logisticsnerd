@@ -6,6 +6,9 @@
   "scripts": {
     "dev": "vite --host 127.0.0.1",
     "build": "tsc --noEmit && vite build",
+    "build:production": "npm run build && vite build --config vite.server.config.mjs",
+    "start": "node server/start-production.mjs",
+    "test:hosting": "node --test tests_hosting/*.node.mjs",
     "preview": "vite preview --host 127.0.0.1",
     "test": "vitest run",
     "test:redis": "node scripts/verify-redis.mjs",

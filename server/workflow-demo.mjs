@@ -1,6 +1,7 @@
 import { spawn } from 'node:child_process';
 import { createInterface } from 'node:readline';
 import { fileURLToPath } from 'node:url';
+import { requestOriginAllowed } from './request-origin.mjs';
 
 const repositoryRoot = fileURLToPath(new URL('../', import.meta.url));
 const endpoint = '/api/demo/workflow';
@@ -141,7 +142,7 @@ export function workflowDemoMiddleware(options = {}) {
       res.end(JSON.stringify(data));
     };
     if (!['GET', 'POST'].includes(req.method)) return send(405, { ok: false, error: 'Use GET for demo state or POST for a demo action.' });
-    if (req.headers.origin && req.headers.origin !== `http://${req.headers.host}`) {
+    if (!requestOriginAllowed(req, options.getEnv?.() || process.env)) {
       return send(403, { ok: false, error: 'Use the local demo application.' });
     }
     const controller = new AbortController();
@@ -170,6 +171,9 @@ export function workflowDemoMiddleware(options = {}) {
           || ('key' in command && (typeof command.key !== 'string' || !command.key.trim() || command.key.length > 128))) {
           return send(400, { ok: false, error: 'Send a known demo action and an optional operation key of 1 through 128 characters.' });
         }
+      }
+      if (options.allowAI === false && ['use_ai', 'compare_ai'].includes(command.action)) {
+        return send(403, { ok: false, error: 'Paid AI estimates are disabled for this deployment.', code: 'feature_disabled' });
       }
       const result = await run(command, controller.signal);
       send(200, result);

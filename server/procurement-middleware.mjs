@@ -1,5 +1,6 @@
 import { createEstimateRunner, estimateAccess, EstimateError } from './procurement.mjs';
 import { CacheError, createRedisCache } from './redis-cache.mjs';
+import { requestOriginAllowed } from './request-origin.mjs';
 
 export function procurementMiddleware(getEnv, rules, catalog) {
   const cache = createRedisCache({ getEnv });
@@ -14,7 +15,7 @@ export function procurementMiddleware(getEnv, rules, catalog) {
       return send(200, { configured: modelConfigured && cacheConfigured, modelConfigured, cacheConfigured, cache: { type: 'redis', ttlDays: 7 } });
     }
     if (path !== '/api/procurement/estimates' || req.method !== 'POST') return send(405, { error: 'Use POST to generate estimates.' });
-    if (req.headers.origin && req.headers.origin !== `http://${req.headers.host}`) return send(403, { error: 'Use the local procurement application.' });
+    if (!requestOriginAllowed(req, getEnv())) return send(403, { error: 'Use the application procurement page.' });
     if (!req.headers['content-type']?.startsWith('application/json')) return send(415, { error: 'Send a JSON procurement request.' });
     const controller = new AbortController();
     const cancel = () => controller.abort();

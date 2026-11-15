@@ -33,7 +33,7 @@ def _client(name,major):
 
 def _environment(dsn):
     details=conninfo_to_dict(dsn)
-    env={k:v for k,v in os.environ.items() if not k.startswith('PG')}
+    env={k:v for k,v in os.environ.items() if not k.startswith(('PG', 'BACKUP_S3_'))}
     names={'dbname':'PGDATABASE','host':'PGHOST','hostaddr':'PGHOSTADDR','port':'PGPORT','user':'PGUSER',
            'password':'PGPASSWORD','sslmode':'PGSSLMODE','sslrootcert':'PGSSLROOTCERT','options':'PGOPTIONS'}
     for key,name in names.items():
@@ -57,6 +57,8 @@ def backup_database(dsn,directory):
     if result.returncode:
         path.unlink(missing_ok=True)
         raise ConfigurationError('Business-schema backup failed; migration was not started')
+    from .backup_storage import store_archive
+    store_archive(path)
     return path
 
 

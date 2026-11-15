@@ -209,6 +209,16 @@ def create_app(
         return {"service": "logistics-purchasing", "configured": settings.configured,
                 "authentication": "owner-development-token", "core_mapping": "external-adapter-required"}
 
+    @app.get("/internal/ready", include_in_schema=False)
+    def ready(conn: Any = Depends(connection)) -> Any:
+        # Private gateway probe: actual connection, business identity, immutable
+        # migration checksums and a provisioned approval actor; never provider calls.
+        from .hosting import readiness
+        try:
+            return readiness(conn, settings.actor_ref)
+        except Exception:
+            return JSONResponse(status_code=503, content={"ready": False})
+
     @app.get("/api/purchasing/workspace")
     def workspace(conn: Any = Depends(connection)) -> Any:
         return _public_json(service.workspace(conn))

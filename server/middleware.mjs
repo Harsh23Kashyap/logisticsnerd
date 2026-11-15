@@ -1,4 +1,5 @@
 import { createComparisonRunner, providerAccess } from './shipping.mjs';
+import { requestOriginAllowed } from './request-origin.mjs';
 
 export function shippingMiddleware(getEnv) {
   const fetcher = (...args) => fetch(...args);
@@ -11,7 +12,7 @@ export function shippingMiddleware(getEnv) {
     const send = (status, data) => { res.writeHead(status, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }); res.end(JSON.stringify(data)); };
     if (path === '/api/shipping/status' && req.method === 'GET') return send(200, { providers: providerAccess(getEnv()) });
     if (path !== '/api/shipping/compare' || req.method !== 'POST') return send(405, { error: 'Use POST to compare shipping providers.' });
-    if (req.headers.origin && req.headers.origin !== `http://${req.headers.host}`) return send(403, { error: 'Use the local comparison page.' });
+    if (!requestOriginAllowed(req, getEnv())) return send(403, { error: 'Use the application comparison page.' });
     if (!req.headers['content-type']?.startsWith('application/json')) return send(415, { error: 'Send a JSON parcel request.' });
     if (active) return send(429, { error: 'A comparison is already running. Wait for it to finish.' });
     active = true;
