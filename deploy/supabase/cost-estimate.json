@@ -1,0 +1,83 @@
+{
+  "currency": "USD",
+  "compute_and_disk_base_only": true,
+  "disk_usd_per_gb_month": 0.25,
+  "services": [
+    {
+      "service": "logisticsnerd-standalone-db",
+      "plan": "1c-2g",
+      "compute_monthly_usd": 25,
+      "disk_gb": 40
+    },
+    {
+      "service": "logisticsnerd-standalone-auth",
+      "plan": "0.5c-512mb",
+      "compute_monthly_usd": 7,
+      "disk_gb": 0
+    },
+    {
+      "service": "logisticsnerd-standalone-rest",
+      "plan": "0.5c-512mb",
+      "compute_monthly_usd": 7,
+      "disk_gb": 0
+    },
+    {
+      "service": "logisticsnerd-standalone-realtime",
+      "plan": "0.5c-512mb",
+      "compute_monthly_usd": 7,
+      "disk_gb": 0
+    },
+    {
+      "service": "logisticsnerd-standalone-storage",
+      "plan": "0.5c-512mb",
+      "compute_monthly_usd": 7,
+      "disk_gb": 10
+    },
+    {
+      "service": "logisticsnerd-standalone-meta",
+      "plan": "0.5c-512mb",
+      "compute_monthly_usd": 7,
+      "disk_gb": 0
+    },
+    {
+      "service": "logisticsnerd-standalone-studio",
+      "plan": "0.5c-512mb",
+      "compute_monthly_usd": 7,
+      "disk_gb": 1
+    },
+    {
+      "service": "logisticsnerd-standalone-functions",
+      "plan": "0.5c-512mb",
+      "compute_monthly_usd": 7,
+      "disk_gb": 0
+    },
+    {
+      "service": "logisticsnerd-standalone-api-gw",
+      "plan": "0.5c-512mb",
+      "compute_monthly_usd": 7,
+      "disk_gb": 0
+    },
+    {
+      "service": "logisticsnerd-standalone-app",
+      "plan": "1c-2g",
+      "compute_monthly_usd": 25,
+      "disk_gb": 2
+    },
+    {
+      "service": "logisticsnerd-standalone-redis",
+      "plan": "0.5c-512mb",
+      "compute_monthly_usd": 7,
+      "disk_gb": 1
+    }
+  ],
+  "monthly_base_usd": 126.5,
+  "excluded": [
+    "tax",
+    "bandwidth/egress",
+    "additional build usage",
+    "workspace plan",
+    "future scaling",
+    "offsite backups"
+  ],
+  "credit_balance_verified": false
+}

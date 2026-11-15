@@ -1,0 +1,6 @@
+{
+  "kind": "standalone",
+  "prefix": "logisticsnerd-standalone",
+  "database": "logistics",
+  "app_port": 8080
+}

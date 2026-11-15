@@ -1,0 +1,915 @@
+services:
+- type: pserv
+  name: logisticsnerd-standalone-db
+  runtime: docker
+  region: virginia
+  plan: 1c-2g
+  numInstances: 1
+  autoDeployTrigger: 'off'
+  dockerfilePath: deploy/supabase/images/db.Dockerfile
+  dockerContext: .
+  envVars:
+  - &id001
+    key: POSTGRES_PORT
+    value: '5432'
+  - &id002
+    key: POSTGRES_DB
+    value: postgres
+  - &id003
+    key: APP_DB_NAME
+    value: logistics
+  - &id004
+    key: APP_ALLOW_DATABASE_CREATE
+    value: 'false'
+  - &id005
+    key: DASHBOARD_USERNAME
+    value: supabase
+  - &id006
+    key: SUPABASE_DB_HOST
+    fromService:
+      type: pserv
+      name: logisticsnerd-standalone-db
+      property: host
+  - &id007
+    key: SUPABASE_GATEWAY_HOST
+    fromService:
+      type: web
+      name: logisticsnerd-standalone-api-gw
+      property: host
+  - &id008
+    key: SUPABASE_PUBLIC_URL
+    fromService:
+      type: web
+      name: logisticsnerd-standalone-api-gw
+      envVarKey: RENDER_EXTERNAL_URL
+  - &id009
+    key: APP_ORIGIN
+    fromService:
+      type: web
+      name: logisticsnerd-standalone-app
+      envVarKey: RENDER_EXTERNAL_URL
+  - &id010
+    key: SUPABASE_AUTH_HOST
+    fromService:
+      type: pserv
+      name: logisticsnerd-standalone-auth
+      property: host
+  - &id011
+    key: SUPABASE_REST_HOST
+    fromService:
+      type: pserv
+      name: logisticsnerd-standalone-rest
+      property: host
+  - &id012
+    key: SUPABASE_REALTIME_HOST
+    fromService:
+      type: pserv
+      name: logisticsnerd-standalone-realtime
+      property: host
+  - &id013
+    key: SUPABASE_STORAGE_HOST
+    fromService:
+      type: pserv
+      name: logisticsnerd-standalone-storage
+      property: host
+  - &id014
+    key: SUPABASE_META_HOST
+    fromService:
+      type: pserv
+      name: logisticsnerd-standalone-meta
+      property: host
+  - &id015
+    key: SUPABASE_STUDIO_HOST
+    fromService:
+      type: pserv
+      name: logisticsnerd-standalone-studio
+      property: host
+  - &id016
+    key: SUPABASE_FUNCTIONS_HOST
+    fromService:
+      type: pserv
+      name: logisticsnerd-standalone-functions
+      property: host
+  - key: POSTGRES_PASSWORD
+    sync: false
+  - key: JWT_SECRET
+    sync: false
+  - key: ANON_KEY
+    sync: false
+  - key: SERVICE_ROLE_KEY
+    sync: false
+  - key: DASHBOARD_PASSWORD
+    sync: false
+  - key: SECRET_KEY_BASE
+    sync: false
+  - key: REALTIME_DB_ENC_KEY
+    sync: false
+  - key: VAULT_ENC_KEY
+    sync: false
+  - key: PG_META_CRYPTO_KEY
+    sync: false
+  - key: S3_PROTOCOL_ACCESS_KEY_ID
+    sync: false
+  - key: S3_PROTOCOL_ACCESS_KEY_SECRET
+    sync: false
+  - key: APP_DB_PASSWORD
+    sync: false
+  - key: PORT
+    value: '5432'
+  disk:
+    name: logisticsnerd-standalone-pgdata
+    mountPath: /var/lib/postgresql
+    sizeGB: 40
+- type: pserv
+  name: logisticsnerd-standalone-auth
+  runtime: docker
+  region: virginia
+  plan: 0.5c-512mb
+  numInstances: 1
+  autoDeployTrigger: 'off'
+  dockerfilePath: deploy/supabase/images/auth.Dockerfile
+  dockerContext: .
+  envVars:
+  - *id001
+  - *id002
+  - *id003
+  - *id004
+  - *id005
+  - *id006
+  - *id007
+  - *id008
+  - *id009
+  - *id010
+  - *id011
+  - *id012
+  - *id013
+  - *id014
+  - *id015
+  - *id016
+  - key: POSTGRES_PASSWORD
+    fromService:
+      type: pserv
+      name: logisticsnerd-standalone-db
+      envVarKey: POSTGRES_PASSWORD
+  - key: JWT_SECRET
+    fromService:
+      type: pserv
+      name: logisticsnerd-standalone-db
+      envVarKey: JWT_SECRET
+  - key: ANON_KEY
+    fromService:
+      type: pserv
+      name: logisticsnerd-standalone-db
+      envVarKey: ANON_KEY
+  - key: SERVICE_ROLE_KEY
+    fromService:
+      type: pserv
+      name: logisticsnerd-standalone-db
+      envVarKey: SERVICE_ROLE_KEY
+  - key: DASHBOARD_PASSWORD
+    fromService:
+      type: pserv
+      name: logisticsnerd-standalone-db
+      envVarKey: DASHBOARD_PASSWORD
+  - key: SECRET_KEY_BASE
+    fromService:
+      type: pserv
+      name: logisticsnerd-standalone-db
+      envVarKey: SECRET_KEY_BASE
+  - key: REALTIME_DB_ENC_KEY
+    fromService:
+      type: pserv
+      name: logisticsnerd-standalone-db
+      envVarKey: REALTIME_DB_ENC_KEY
+  - key: VAULT_ENC_KEY
+    fromService:
+      type: pserv
+      name: logisticsnerd-standalone-db
+      envVarKey: VAULT_ENC_KEY
+  - key: PG_META_CRYPTO_KEY
+    fromService:
+      type: pserv
+      name: logisticsnerd-standalone-db
+      envVarKey: PG_META_CRYPTO_KEY
+  - key: S3_PROTOCOL_ACCESS_KEY_ID
+    fromService:
+      type: pserv
+      name: logisticsnerd-standalone-db
+      envVarKey: S3_PROTOCOL_ACCESS_KEY_ID
+  - key: S3_PROTOCOL_ACCESS_KEY_SECRET
+    fromService:
+      type: pserv
+      name: logisticsnerd-standalone-db
+      envVarKey: S3_PROTOCOL_ACCESS_KEY_SECRET
+  - key: APP_DB_PASSWORD
+    fromService:
+      type: pserv
+      name: logisticsnerd-standalone-db
+      envVarKey: APP_DB_PASSWORD
+  - key: PORT
+    value: '9999'
+  healthCheckPath: /health
+- type: pserv
+  name: logisticsnerd-standalone-rest
+  runtime: docker
+  region: virginia
+  plan: 0.5c-512mb
+  numInstances: 1
+  autoDeployTrigger: 'off'
+  dockerfilePath: deploy/supabase/images/rest.Dockerfile
+  dockerContext: .
+  envVars:
+  - *id001
+  - *id002
+  - *id003
+  - *id004
+  - *id005
+  - *id006
+  - *id007
+  - *id008
+  - *id009
+  - *id010
+  - *id011
+  - *id012
+  - *id013
+  - *id014
+  - *id015
+  - *id016
+  - key: POSTGRES_PASSWORD
+    fromService:
+      type: pserv
+      name: logisticsnerd-standalone-db
+      envVarKey: POSTGRES_PASSWORD
+  - key: JWT_SECRET
+    fromService:
+      type: pserv
+      name: logisticsnerd-standalone-db
+      envVarKey: JWT_SECRET
+  - key: ANON_KEY
+    fromService:
+      type: pserv
+      name: logisticsnerd-standalone-db
+      envVarKey: ANON_KEY
+  - key: SERVICE_ROLE_KEY
+    fromService:
+      type: pserv
+      name: logisticsnerd-standalone-db
+      envVarKey: SERVICE_ROLE_KEY
+  - key: DASHBOARD_PASSWORD
+    fromService:
+      type: pserv
+      name: logisticsnerd-standalone-db
+      envVarKey: DASHBOARD_PASSWORD
+  - key: SECRET_KEY_BASE
+    fromService:
+      type: pserv
+      name: logisticsnerd-standalone-db
+      envVarKey: SECRET_KEY_BASE
+  - key: REALTIME_DB_ENC_KEY
+    fromService:
+      type: pserv
+      name: logisticsnerd-standalone-db
+      envVarKey: REALTIME_DB_ENC_KEY
+  - key: VAULT_ENC_KEY
+    fromService:
+      type: pserv
+      name: logisticsnerd-standalone-db
+      envVarKey: VAULT_ENC_KEY
+  - key: PG_META_CRYPTO_KEY
+    fromService:
+      type: pserv
+      name: logisticsnerd-standalone-db
+      envVarKey: PG_META_CRYPTO_KEY
+  - key: S3_PROTOCOL_ACCESS_KEY_ID
+    fromService:
+      type: pserv
+      name: logisticsnerd-standalone-db
+      envVarKey: S3_PROTOCOL_ACCESS_KEY_ID
+  - key: S3_PROTOCOL_ACCESS_KEY_SECRET
+    fromService:
+      type: pserv
+      name: logisticsnerd-standalone-db
+      envVarKey: S3_PROTOCOL_ACCESS_KEY_SECRET
+  - key: APP_DB_PASSWORD
+    fromService:
+      type: pserv
+      name: logisticsnerd-standalone-db
+      envVarKey: APP_DB_PASSWORD
+  - key: PORT
+    value: '3000'
+- type: pserv
+  name: logisticsnerd-standalone-realtime
+  runtime: docker
+  region: virginia
+  plan: 0.5c-512mb
+  numInstances: 1
+  autoDeployTrigger: 'off'
+  dockerfilePath: deploy/supabase/images/realtime.Dockerfile
+  dockerContext: .
+  envVars:
+  - *id001
+  - *id002
+  - *id003
+  - *id004
+  - *id005
+  - *id006
+  - *id007
+  - *id008
+  - *id009
+  - *id010
+  - *id011
+  - *id012
+  - *id013
+  - *id014
+  - *id015
+  - *id016
+  - key: POSTGRES_PASSWORD
+    fromService:
+      type: pserv
+      name: logisticsnerd-standalone-db
+      envVarKey: POSTGRES_PASSWORD
+  - key: JWT_SECRET
+    fromService:
+      type: pserv
+      name: logisticsnerd-standalone-db
+      envVarKey: JWT_SECRET
+  - key: ANON_KEY
+    fromService:
+      type: pserv
+      name: logisticsnerd-standalone-db
+      envVarKey: ANON_KEY
+  - key: SERVICE_ROLE_KEY
+    fromService:
+      type: pserv
+      name: logisticsnerd-standalone-db
+      envVarKey: SERVICE_ROLE_KEY
+  - key: DASHBOARD_PASSWORD
+    fromService:
+      type: pserv
+      name: logisticsnerd-standalone-db
+      envVarKey: DASHBOARD_PASSWORD
+  - key: SECRET_KEY_BASE
+    fromService:
+      type: pserv
+      name: logisticsnerd-standalone-db
+      envVarKey: SECRET_KEY_BASE
+  - key: REALTIME_DB_ENC_KEY
+    fromService:
+      type: pserv
+      name: logisticsnerd-standalone-db
+      envVarKey: REALTIME_DB_ENC_KEY
+  - key: VAULT_ENC_KEY
+    fromService:
+      type: pserv
+      name: logisticsnerd-standalone-db
+      envVarKey: VAULT_ENC_KEY
+  - key: PG_META_CRYPTO_KEY
+    fromService:
+      type: pserv
+      name: logisticsnerd-standalone-db
+      envVarKey: PG_META_CRYPTO_KEY
+  - key: S3_PROTOCOL_ACCESS_KEY_ID
+    fromService:
+      type: pserv
+      name: logisticsnerd-standalone-db
+      envVarKey: S3_PROTOCOL_ACCESS_KEY_ID
+  - key: S3_PROTOCOL_ACCESS_KEY_SECRET
+    fromService:
+      type: pserv
+      name: logisticsnerd-standalone-db
+      envVarKey: S3_PROTOCOL_ACCESS_KEY_SECRET
+  - key: APP_DB_PASSWORD
+    fromService:
+      type: pserv
+      name: logisticsnerd-standalone-db
+      envVarKey: APP_DB_PASSWORD
+  - key: PORT
+    value: '4000'
+- type: pserv
+  name: logisticsnerd-standalone-storage
+  runtime: docker
+  region: virginia
+  plan: 0.5c-512mb
+  numInstances: 1
+  autoDeployTrigger: 'off'
+  dockerfilePath: deploy/supabase/images/storage.Dockerfile
+  dockerContext: .
+  envVars:
+  - *id001
+  - *id002
+  - *id003
+  - *id004
+  - *id005
+  - *id006
+  - *id007
+  - *id008
+  - *id009
+  - *id010
+  - *id011
+  - *id012
+  - *id013
+  - *id014
+  - *id015
+  - *id016
+  - key: POSTGRES_PASSWORD
+    fromService:
+      type: pserv
+      name: logisticsnerd-standalone-db
+      envVarKey: POSTGRES_PASSWORD
+  - key: JWT_SECRET
+    fromService:
+      type: pserv
+      name: logisticsnerd-standalone-db
+      envVarKey: JWT_SECRET
+  - key: ANON_KEY
+    fromService:
+      type: pserv
+      name: logisticsnerd-standalone-db
+      envVarKey: ANON_KEY
+  - key: SERVICE_ROLE_KEY
+    fromService:
+      type: pserv
+      name: logisticsnerd-standalone-db
+      envVarKey: SERVICE_ROLE_KEY
+  - key: DASHBOARD_PASSWORD
+    fromService:
+      type: pserv
+      name: logisticsnerd-standalone-db
+      envVarKey: DASHBOARD_PASSWORD
+  - key: SECRET_KEY_BASE
+    fromService:
+      type: pserv
+      name: logisticsnerd-standalone-db
+      envVarKey: SECRET_KEY_BASE
+  - key: REALTIME_DB_ENC_KEY
+    fromService:
+      type: pserv
+      name: logisticsnerd-standalone-db
+      envVarKey: REALTIME_DB_ENC_KEY
+  - key: VAULT_ENC_KEY
+    fromService:
+      type: pserv
+      name: logisticsnerd-standalone-db
+      envVarKey: VAULT_ENC_KEY
+  - key: PG_META_CRYPTO_KEY
+    fromService:
+      type: pserv
+      name: logisticsnerd-standalone-db
+      envVarKey: PG_META_CRYPTO_KEY
+  - key: S3_PROTOCOL_ACCESS_KEY_ID
+    fromService:
+      type: pserv
+      name: logisticsnerd-standalone-db
+      envVarKey: S3_PROTOCOL_ACCESS_KEY_ID
+  - key: S3_PROTOCOL_ACCESS_KEY_SECRET
+    fromService:
+      type: pserv
+      name: logisticsnerd-standalone-db
+      envVarKey: S3_PROTOCOL_ACCESS_KEY_SECRET
+  - key: APP_DB_PASSWORD
+    fromService:
+      type: pserv
+      name: logisticsnerd-standalone-db
+      envVarKey: APP_DB_PASSWORD
+  - key: PORT
+    value: '5000'
+  disk:
+    name: logisticsnerd-standalone-storage
+    mountPath: /var/lib/storage
+    sizeGB: 10
+  healthCheckPath: /status
+- type: pserv
+  name: logisticsnerd-standalone-meta
+  runtime: docker
+  region: virginia
+  plan: 0.5c-512mb
+  numInstances: 1
+  autoDeployTrigger: 'off'
+  dockerfilePath: deploy/supabase/images/meta.Dockerfile
+  dockerContext: .
+  envVars:
+  - *id001
+  - *id002
+  - *id003
+  - *id004
+  - *id005
+  - *id006
+  - *id007
+  - *id008
+  - *id009
+  - *id010
+  - *id011
+  - *id012
+  - *id013
+  - *id014
+  - *id015
+  - *id016
+  - key: POSTGRES_PASSWORD
+    fromService:
+      type: pserv
+      name: logisticsnerd-standalone-db
+      envVarKey: POSTGRES_PASSWORD
+  - key: JWT_SECRET
+    fromService:
+      type: pserv
+      name: logisticsnerd-standalone-db
+      envVarKey: JWT_SECRET
+  - key: ANON_KEY
+    fromService:
+      type: pserv
+      name: logisticsnerd-standalone-db
+      envVarKey: ANON_KEY
+  - key: SERVICE_ROLE_KEY
+    fromService:
+      type: pserv
+      name: logisticsnerd-standalone-db
+      envVarKey: SERVICE_ROLE_KEY
+  - key: DASHBOARD_PASSWORD
+    fromService:
+      type: pserv
+      name: logisticsnerd-standalone-db
+      envVarKey: DASHBOARD_PASSWORD
+  - key: SECRET_KEY_BASE
+    fromService:
+      type: pserv
+      name: logisticsnerd-standalone-db
+      envVarKey: SECRET_KEY_BASE
+  - key: REALTIME_DB_ENC_KEY
+    fromService:
+      type: pserv
+      name: logisticsnerd-standalone-db
+      envVarKey: REALTIME_DB_ENC_KEY
+  - key: VAULT_ENC_KEY
+    fromService:
+      type: pserv
+      name: logisticsnerd-standalone-db
+      envVarKey: VAULT_ENC_KEY
+  - key: PG_META_CRYPTO_KEY
+    fromService:
+      type: pserv
+      name: logisticsnerd-standalone-db
+      envVarKey: PG_META_CRYPTO_KEY
+  - key: S3_PROTOCOL_ACCESS_KEY_ID
+    fromService:
+      type: pserv
+      name: logisticsnerd-standalone-db
+      envVarKey: S3_PROTOCOL_ACCESS_KEY_ID
+  - key: S3_PROTOCOL_ACCESS_KEY_SECRET
+    fromService:
+      type: pserv
+      name: logisticsnerd-standalone-db
+      envVarKey: S3_PROTOCOL_ACCESS_KEY_SECRET
+  - key: APP_DB_PASSWORD
+    fromService:
+      type: pserv
+      name: logisticsnerd-standalone-db
+      envVarKey: APP_DB_PASSWORD
+  - key: PORT
+    value: '8080'
+- type: pserv
+  name: logisticsnerd-standalone-studio
+  runtime: docker
+  region: virginia
+  plan: 0.5c-512mb
+  numInstances: 1
+  autoDeployTrigger: 'off'
+  dockerfilePath: deploy/supabase/images/studio.Dockerfile
+  dockerContext: .
+  envVars:
+  - *id001
+  - *id002
+  - *id003
+  - *id004
+  - *id005
+  - *id006
+  - *id007
+  - *id008
+  - *id009
+  - *id010
+  - *id011
+  - *id012
+  - *id013
+  - *id014
+  - *id015
+  - *id016
+  - key: POSTGRES_PASSWORD
+    fromService:
+      type: pserv
+      name: logisticsnerd-standalone-db
+      envVarKey: POSTGRES_PASSWORD
+  - key: JWT_SECRET
+    fromService:
+      type: pserv
+      name: logisticsnerd-standalone-db
+      envVarKey: JWT_SECRET
+  - key: ANON_KEY
+    fromService:
+      type: pserv
+      name: logisticsnerd-standalone-db
+      envVarKey: ANON_KEY
+  - key: SERVICE_ROLE_KEY
+    fromService:
+      type: pserv
+      name: logisticsnerd-standalone-db
+      envVarKey: SERVICE_ROLE_KEY
+  - key: DASHBOARD_PASSWORD
+    fromService:
+      type: pserv
+      name: logisticsnerd-standalone-db
+      envVarKey: DASHBOARD_PASSWORD
+  - key: SECRET_KEY_BASE
+    fromService:
+      type: pserv
+      name: logisticsnerd-standalone-db
+      envVarKey: SECRET_KEY_BASE
+  - key: REALTIME_DB_ENC_KEY
+    fromService:
+      type: pserv
+      name: logisticsnerd-standalone-db
+      envVarKey: REALTIME_DB_ENC_KEY
+  - key: VAULT_ENC_KEY
+    fromService:
+      type: pserv
+      name: logisticsnerd-standalone-db
+      envVarKey: VAULT_ENC_KEY
+  - key: PG_META_CRYPTO_KEY
+    fromService:
+      type: pserv
+      name: logisticsnerd-standalone-db
+      envVarKey: PG_META_CRYPTO_KEY
+  - key: S3_PROTOCOL_ACCESS_KEY_ID
+    fromService:
+      type: pserv
+      name: logisticsnerd-standalone-db
+      envVarKey: S3_PROTOCOL_ACCESS_KEY_ID
+  - key: S3_PROTOCOL_ACCESS_KEY_SECRET
+    fromService:
+      type: pserv
+      name: logisticsnerd-standalone-db
+      envVarKey: S3_PROTOCOL_ACCESS_KEY_SECRET
+  - key: APP_DB_PASSWORD
+    fromService:
+      type: pserv
+      name: logisticsnerd-standalone-db
+      envVarKey: APP_DB_PASSWORD
+  - key: PORT
+    value: '3000'
+  disk:
+    name: logisticsnerd-standalone-studio
+    mountPath: /var/lib/studio
+    sizeGB: 1
+- type: pserv
+  name: logisticsnerd-standalone-functions
+  runtime: docker
+  region: virginia
+  plan: 0.5c-512mb
+  numInstances: 1
+  autoDeployTrigger: 'off'
+  dockerfilePath: deploy/supabase/images/functions.Dockerfile
+  dockerContext: .
+  envVars:
+  - *id001
+  - *id002
+  - *id003
+  - *id004
+  - *id005
+  - *id006
+  - *id007
+  - *id008
+  - *id009
+  - *id010
+  - *id011
+  - *id012
+  - *id013
+  - *id014
+  - *id015
+  - *id016
+  - key: POSTGRES_PASSWORD
+    fromService:
+      type: pserv
+      name: logisticsnerd-standalone-db
+      envVarKey: POSTGRES_PASSWORD
+  - key: JWT_SECRET
+    fromService:
+      type: pserv
+      name: logisticsnerd-standalone-db
+      envVarKey: JWT_SECRET
+  - key: ANON_KEY
+    fromService:
+      type: pserv
+      name: logisticsnerd-standalone-db
+      envVarKey: ANON_KEY
+  - key: SERVICE_ROLE_KEY
+    fromService:
+      type: pserv
+      name: logisticsnerd-standalone-db
+      envVarKey: SERVICE_ROLE_KEY
+  - key: DASHBOARD_PASSWORD
+    fromService:
+      type: pserv
+      name: logisticsnerd-standalone-db
+      envVarKey: DASHBOARD_PASSWORD
+  - key: SECRET_KEY_BASE
+    fromService:
+      type: pserv
+      name: logisticsnerd-standalone-db
+      envVarKey: SECRET_KEY_BASE
+  - key: REALTIME_DB_ENC_KEY
+    fromService:
+      type: pserv
+      name: logisticsnerd-standalone-db
+      envVarKey: REALTIME_DB_ENC_KEY
+  - key: VAULT_ENC_KEY
+    fromService:
+      type: pserv
+      name: logisticsnerd-standalone-db
+      envVarKey: VAULT_ENC_KEY
+  - key: PG_META_CRYPTO_KEY
+    fromService:
+      type: pserv
+      name: logisticsnerd-standalone-db
+      envVarKey: PG_META_CRYPTO_KEY
+  - key: S3_PROTOCOL_ACCESS_KEY_ID
+    fromService:
+      type: pserv
+      name: logisticsnerd-standalone-db
+      envVarKey: S3_PROTOCOL_ACCESS_KEY_ID
+  - key: S3_PROTOCOL_ACCESS_KEY_SECRET
+    fromService:
+      type: pserv
+      name: logisticsnerd-standalone-db
+      envVarKey: S3_PROTOCOL_ACCESS_KEY_SECRET
+  - key: APP_DB_PASSWORD
+    fromService:
+      type: pserv
+      name: logisticsnerd-standalone-db
+      envVarKey: APP_DB_PASSWORD
+  - key: PORT
+    value: '9000'
+- type: web
+  name: logisticsnerd-standalone-api-gw
+  runtime: docker
+  region: virginia
+  plan: 0.5c-512mb
+  numInstances: 1
+  autoDeployTrigger: 'off'
+  dockerfilePath: deploy/supabase/images/api-gw.Dockerfile
+  dockerContext: .
+  envVars:
+  - *id001
+  - *id002
+  - *id003
+  - *id004
+  - *id005
+  - *id006
+  - *id007
+  - *id009
+  - *id010
+  - *id011
+  - *id012
+  - *id013
+  - *id014
+  - *id015
+  - *id016
+  - key: POSTGRES_PASSWORD
+    fromService:
+      type: pserv
+      name: logisticsnerd-standalone-db
+      envVarKey: POSTGRES_PASSWORD
+  - key: JWT_SECRET
+    fromService:
+      type: pserv
+      name: logisticsnerd-standalone-db
+      envVarKey: JWT_SECRET
+  - key: ANON_KEY
+    fromService:
+      type: pserv
+      name: logisticsnerd-standalone-db
+      envVarKey: ANON_KEY
+  - key: SERVICE_ROLE_KEY
+    fromService:
+      type: pserv
+      name: logisticsnerd-standalone-db
+      envVarKey: SERVICE_ROLE_KEY
+  - key: DASHBOARD_PASSWORD
+    fromService:
+      type: pserv
+      name: logisticsnerd-standalone-db
+      envVarKey: DASHBOARD_PASSWORD
+  - key: SECRET_KEY_BASE
+    fromService:
+      type: pserv
+      name: logisticsnerd-standalone-db
+      envVarKey: SECRET_KEY_BASE
+  - key: REALTIME_DB_ENC_KEY
+    fromService:
+      type: pserv
+      name: logisticsnerd-standalone-db
+      envVarKey: REALTIME_DB_ENC_KEY
+  - key: VAULT_ENC_KEY
+    fromService:
+      type: pserv
+      name: logisticsnerd-standalone-db
+      envVarKey: VAULT_ENC_KEY
+  - key: PG_META_CRYPTO_KEY
+    fromService:
+      type: pserv
+      name: logisticsnerd-standalone-db
+      envVarKey: PG_META_CRYPTO_KEY
+  - key: S3_PROTOCOL_ACCESS_KEY_ID
+    fromService:
+      type: pserv
+      name: logisticsnerd-standalone-db
+      envVarKey: S3_PROTOCOL_ACCESS_KEY_ID
+  - key: S3_PROTOCOL_ACCESS_KEY_SECRET
+    fromService:
+      type: pserv
+      name: logisticsnerd-standalone-db
+      envVarKey: S3_PROTOCOL_ACCESS_KEY_SECRET
+  - key: APP_DB_PASSWORD
+    fromService:
+      type: pserv
+      name: logisticsnerd-standalone-db
+      envVarKey: APP_DB_PASSWORD
+  - key: SUPABASE_PUBLIC_URL
+    fromService:
+      type: web
+      name: logisticsnerd-standalone-api-gw
+      envVarKey: RENDER_EXTERNAL_URL
+  - key: PORT
+    value: '8000'
+- type: web
+  name: logisticsnerd-standalone-app
+  runtime: docker
+  region: virginia
+  plan: 1c-2g
+  numInstances: 1
+  autoDeployTrigger: 'off'
+  dockerfilePath: deploy/supabase/images/app.Dockerfile
+  dockerContext: .
+  healthCheckPath: /readyz
+  disk:
+    name: logisticsnerd-standalone-backups
+    mountPath: /app/backups
+    sizeGB: 2
+  envVars:
+  - key: DEPLOY_APP_KIND
+    value: standalone
+  - key: APP_DB_NAME
+    value: logistics
+  - key: SUPABASE_DB_HOST
+    fromService:
+      type: pserv
+      name: logisticsnerd-standalone-db
+      property: host
+  - key: APP_DB_PASSWORD
+    fromService:
+      type: pserv
+      name: logisticsnerd-standalone-db
+      envVarKey: APP_DB_PASSWORD
+  - key: APP_ORIGIN
+    fromService:
+      type: web
+      name: logisticsnerd-standalone-app
+      envVarKey: RENDER_EXTERNAL_URL
+  - key: PORT
+    value: '8080'
+  - key: HOST_ENABLE_AI
+    value: 'false'
+  - key: HOST_ENABLE_CARRIERS
+    value: 'false'
+  - key: HOST_ENABLE_DEMO
+    value: 'false'
+  - key: HOST_BOOTSTRAP
+    value: '1'
+  - key: LOGISTICS_BUSINESS_KEY
+    value: logisticsnerd-standalone
+  - key: LOGISTICS_ACTOR_REF
+    value: hosted-owner
+  - key: REDIS_HOST
+    fromService:
+      type: pserv
+      name: logisticsnerd-standalone-redis
+      property: host
+  - key: HOST_OWNER_PASSWORD
+    sync: false
+  - key: HOST_SESSION_SECRET
+    sync: false
+  - key: LOGISTICS_API_TOKEN
+    sync: false
+  - key: HOST_PUBLIC_DEMO
+    value: 'true'
+- type: pserv
+  name: logisticsnerd-standalone-redis
+  runtime: image
+  image:
+    url: redis:7.4.7-alpine
+  region: virginia
+  plan: 0.5c-512mb
+  numInstances: 1
+  autoDeployTrigger: 'off'
+  dockerCommand: redis-server --appendonly yes --dir /data
+  disk:
+    name: logisticsnerd-standalone-redis
+    mountPath: /data
+    sizeGB: 1

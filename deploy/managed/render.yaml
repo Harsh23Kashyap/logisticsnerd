@@ -1,0 +1,43 @@
+# Free web app; Neon databases and private archive buckets are external.
+services:
+- type: web
+  name: logisticsnerd-demo
+  runtime: docker
+  branch: feature/purchasing-stock-integration
+  region: virginia
+  plan: free
+  autoDeployTrigger: 'off'
+  dockerfilePath: ./Dockerfile
+  dockerContext: .
+  healthCheckPath: /readyz
+  envVars:
+  - key: PORT
+    value: '10000'
+  - key: HOST_ENABLE_AI
+    value: 'false'
+  - key: HOST_ENABLE_CARRIERS
+    value: 'false'
+  - key: BACKUP_S3_REGION
+    value: us-east-1
+  - key: HOST_PUBLIC_DEMO
+    value: 'true'
+  - key: HOST_BOOTSTRAP
+    value: '1'
+  - key: LOGISTICS_DATABASE_URL
+    sync: false
+  - key: BACKUP_S3_BUCKET
+    sync: false
+  - key: BACKUP_S3_ENDPOINT
+    sync: false
+  - key: BACKUP_S3_ACCESS_KEY_ID
+    sync: false
+  - key: BACKUP_S3_SECRET_ACCESS_KEY
+    sync: false
+  - key: HOST_SESSION_SECRET
+    sync: false
+  - key: LOGISTICS_API_TOKEN
+    sync: false
+  - key: LOGISTICS_BUSINESS_KEY
+    sync: false
+  - key: LOGISTICS_ACTOR_REF
+    sync: false
