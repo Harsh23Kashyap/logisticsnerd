@@ -180,7 +180,10 @@ export function createComparisonRunner(options = {}) {
     if (!Array.isArray(selected) || !selected.length || new Set(selected).size !== selected.length || selected.some((id) => !providers.includes(id))) throw new Error('Select valid providers.');
     // Snapshot before the first await so all providers in this comparison use
     // the same credentials and activation flags, even if env changes mid-run.
-    const env = { ...(options.env ?? {}) };
+    // The middleware uses a get-only Proxy, so object spread would silently
+    // drop every setting. Read the supported fields explicitly, once each.
+    const env = Object.fromEntries(['SMKLOG_ENABLED', 'EASYPOST_TEST_API_KEY', 'AFTERSHIP_API_KEY', 'AFTERSHIP_EDD_ENABLED']
+      .map((key) => [key, options.env?.[key]]));
     const currentConfig = JSON.stringify([env.SMKLOG_ENABLED, env.EASYPOST_TEST_API_KEY, env.AFTERSHIP_API_KEY, env.AFTERSHIP_EDD_ENABLED]);
     if (state.config !== currentConfig) state = { config: currentConfig, cache: new Map(), blocked: new Set() };
     const { cache, blocked } = state;
