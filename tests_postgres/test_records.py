@@ -260,7 +260,8 @@ class BusinessRecordsTests(PostgresCase):
             self.conn, supplier_id=supplier_binding, item_id=item_binding,
             quantity_priced=2, capacity_quantity=2, price_minor=100, pricing_kind="unit",
             currency="USD", expires_at=datetime.now(timezone.utc) + timedelta(days=2),
-            expected_date=date.today(), idempotency_key=self.key("quote"))
+            expected_date=(datetime.now(timezone.utc) + timedelta(days=1)).date(),
+            idempotency_key=self.key("quote"))
         po = p.create_purchase_order(self.conn, supplier_id=supplier_binding,
                                      currency="USD", idempotency_key=self.key("po"))
         line = p.add_purchase_line(self.conn, purchase_order_id=po["id"],
