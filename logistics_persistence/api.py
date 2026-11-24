@@ -281,7 +281,7 @@ def create_app(
         return invoke(conn, "stock_summary", {"item_id": item_id, "location_id": location_id})
 
     @app.get('/api/purchasing/lot-risks')
-    def lot_risks(as_of: date, horizon_days: Annotated[int, Field(ge=0, le=366)] = 30,
+    def lot_risks(as_of: str, horizon_days: Annotated[int, Field(ge=0, le=366)] = 30,
                   location_id: PositivePathInt | None = None,
                   item_id: PositivePathInt | None = None,
                   conn: Any = Depends(connection)) -> Any:

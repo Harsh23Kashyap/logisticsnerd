@@ -3,7 +3,8 @@
 `GET /api/purchasing/lot-risks?as_of=2026-11-04&horizon_days=30`
 uses the same owner development bearer token and pinned business database as the
 other purchasing endpoints. Optional positive `item_id` and `location_id` filter
-before aggregation. The horizon is 0..366 days, default 30.
+before aggregation. Use an ISO calendar date for `as_of` (YYYY-MM-DD).
+The horizon is 0..366 days, default 30.
 
 This is a read-only queue from the current ledger, not a historical inventory
 snapshot. `as_of` classifies expiration only. It does not reverse later shipments.

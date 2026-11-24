@@ -63,6 +63,20 @@ class LotRiskTests(PostgresCase):
         row=self.report()['lots'][0]
         self.assertEqual((row['on_hand'],row['allocated'],row['unallocated']), (8,4,4))
 
+    def test_partial_shipments_reduce_allocations_only_at_their_location(self):
+        self.receive('shared', '2026-11-05', 10, self.loc)
+        self.receive('shared', '2026-11-05', 7, self.other)
+        first = stock.reserve(self.conn, self.item, 6, 'order-a', self.key(),
+                              as_of='2026-11-04', location_id=self.loc)
+        stock.reserve(self.conn, self.item, 3, 'order-b', self.key(),
+                      as_of='2026-11-04', location_id=self.other)
+        stock.ship(self.conn, first['reservation_id'], 2, self.key(), as_of='2026-11-04')
+
+        rows = {row['location_id']: row for row in self.report(item_id=self.item)['lots']}
+        self.assertEqual((rows[self.loc]['on_hand'], rows[self.loc]['allocated']), (8, 4))
+        self.assertEqual((rows[self.other]['on_hand'], rows[self.other]['allocated']), (7, 3))
+        self.assertEqual(self.report(location_id=self.other)['on_hand_by_risk']['expiring'], 7)
+
     def test_depleted_lot_excluded(self):
         self.receive('soon','2026-11-05',2)
         r=stock.reserve(self.conn,self.item,2,'order',self.key(),as_of='2026-11-04',location_id=self.loc)
@@ -89,6 +103,21 @@ class LotRiskTests(PostgresCase):
         for query in ('horizon_days=-1','horizon_days=367','location_id=0','item_id=0'):
             self.assertEqual(self.client.get(path+'&'+query,headers=self.auth).status_code,422)
         self.assertEqual(self.client.get('/api/purchasing/lot-risks',headers=self.auth).status_code,422)
+
+    def test_http_as_of_must_be_an_iso_calendar_date(self):
+        for value in ('0', '2026-11-04T00:00:00Z'):
+            with self.subTest(value=value):
+                response = self.client.get('/api/purchasing/lot-risks',
+                                           params={'as_of': value}, headers=self.auth)
+                self.assertEqual(response.status_code, 422, response.text)
+
+    def test_http_filters_must_fit_postgres_ids(self):
+        for name in ('item_id', 'location_id'):
+            with self.subTest(name=name):
+                response = self.client.get('/api/purchasing/lot-risks',
+                                           params={'as_of': '2026-11-04', name: 2**63},
+                                           headers=self.auth)
+                self.assertEqual(response.status_code, 422, response.text)
 
     def test_read_only_and_current_balance_label(self):
         self.receive('soon','2026-11-05')
