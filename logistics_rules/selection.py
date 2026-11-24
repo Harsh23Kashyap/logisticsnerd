@@ -53,9 +53,7 @@ def _aware(name: str, value: datetime) -> None:
         raise ValueError(f"{name} must be a timezone-aware datetime.")
 
 
-def _date(name: str, value: date | None, *, optional: bool = False) -> None:
-    if value is None and optional:
-        return
+def _date(name: str, value: date) -> None:
     if type(value) is not date:
         raise ValueError(f"{name} must be a calendar date, not a datetime or string.")
 
@@ -119,9 +117,10 @@ class Quote:
         return quantity * self.price_cents
 
     def validate_at(self, now: datetime, deadline: date | None, currency: str) -> None:
-        """Revalidate validity and delivery using today's UTC calendar date."""
+        """Check quote terms and delivery dates. A missing deadline removes the upper date limit."""
         _aware("now", now)
-        _date("deadline", deadline, optional=True)
+        if deadline is not None:
+            _date("deadline", deadline)
         _currency(currency)
         failures = []
         if self.currency != currency:
@@ -198,7 +197,8 @@ def select_quotes(
     """
     _integer("needed", needed)
     _aware("now", now)
-    _date("deadline", deadline, optional=True)
+    if deadline is not None:
+        _date("deadline", deadline)
     _currency(currency)
     if budget_cents is not None:
         _integer("budget_cents", budget_cents)
@@ -296,13 +296,13 @@ def select_quotes(
         return Recommendation(False, (), 0, tuple(explanations))
 
     allocations = []
+    deadline_fact = f" <= deadline {deadline.isoformat()}" if deadline is not None else "; no required-by date"
     for quote, quantity in zip(candidates, best.quantities):
         if not quantity:
             continue
         price = quote.cost(quantity)
         allocations.append(Allocation(quote.id, quantity, price))
         provenance = f"{quote.source} estimate, not a supplier commitment" if quote.estimated else "supplier quote"
-        deadline_fact = f" <= deadline {deadline.isoformat()}" if deadline is not None else "; no required-by date"
         explanations.append(
             f"Recommend {quantity} units from {quote.supplier_id} using quote {quote.id}, cost {price} cents {currency}; "
             f"delivery {quote.expected_date.isoformat()}{deadline_fact}; {provenance}."

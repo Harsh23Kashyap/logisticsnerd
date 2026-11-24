@@ -266,10 +266,6 @@ class SelectionTests(unittest.TestCase):
                 select(2, [quote()])
 
 
-if __name__ == "__main__":
-    unittest.main()
-
-
 class OptionalDeadlineTests(unittest.TestCase):
     """A demand line may have no required-by date (NULL in the schema and UI)."""
 
@@ -308,3 +304,7 @@ class OptionalDeadlineTests(unittest.TestCase):
         for bad in ("2026-10-15", datetime(2026, 10, 15, tzinfo=timezone.utc)):
             with self.assertRaisesRegex(ValueError, "calendar date"):
                 select(10, [quote("a")], deadline=bad)
+
+
+if __name__ == "__main__":
+    unittest.main()

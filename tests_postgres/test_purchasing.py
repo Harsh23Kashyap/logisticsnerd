@@ -229,7 +229,7 @@ class PurchasingTests(PostgresCase):
                                     budget_minor=budget_minor, idempotency_key=key)["id"]
 
     def test_demand_without_required_by_can_be_approved(self):
-        po, line, allocation, quote = self.purchase(quantity=3, demand=self.demand_without_required_by(3))
+        po, *_ = self.purchase(quantity=3, demand=self.demand_without_required_by(3))
         approved = self.approve(po)
         self.assertEqual(approved["status"], "approved")
 
@@ -242,15 +242,16 @@ class PurchasingTests(PostgresCase):
         demand = self.demand_without_required_by(4)
         self.quote(quantity=4)
         result = p.compare_suppliers(self.conn, demand_line_id=demand)
-        self.assertTrue(result["feasible"] if isinstance(result, dict) else result.feasible)
+        self.assertTrue(result["feasible"])
+        self.assertIn("no required-by date", " ".join(result["explanations"]))
 
     def test_no_required_by_still_enforces_expiry_and_estimates(self):
-        po, line, allocation, quote = self.purchase(quantity=2, demand=self.demand_without_required_by(2))
+        po, _, _, quote = self.purchase(quantity=2, demand=self.demand_without_required_by(2))
         later = datetime.fromisoformat(quote["expires_at"]) + timedelta(seconds=1)
         with self.assertRaisesRegex(LogisticsError, "expired"):
             self.approve(po, now=later)
         other = self.purchase(quantity=2, demand=self.demand_without_required_by(2), source="ai_estimate")
-        with self.assertRaises(LogisticsError):
+        with self.assertRaisesRegex(LogisticsError, "Estimates are not supplier commitments"):
             self.approve(other[0])
 
     def test_no_required_by_still_enforces_budget_and_actor(self):
