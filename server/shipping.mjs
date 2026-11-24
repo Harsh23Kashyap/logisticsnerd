@@ -92,19 +92,25 @@ function matchingPrediction(r, rates, prediction) {
   return matches.length === 1 ? matches[0] : null;
 }
 
-function rate(value, deadline) {
+function rate(value, parcel) {
+  const { deadline } = parcel;
+  const pickupDate = parcel.pickupTime.slice(0, 10);
   const min = value.earliestDate;
   const max = value.latestDate;
   let deadlineAssessment = 'unknown';
-  if (min && max && min > max) return { ...value, deadlineAssessment };
+  // A prediction before the requested pickup cannot establish suitability.
+  // Keep the provider fields visible, but do not call it on time or late.
+  if ([min, max, value.deliveryDate].some((d) => d && d < pickupDate)
+      || (min && max && min > max)) return { ...value, deadlineAssessment };
   if (max) deadlineAssessment = max <= deadline ? 'estimated_on_time' : min && min > deadline ? 'estimated_late' : 'uncertain';
+  else if (min) deadlineAssessment = min > deadline ? 'estimated_late' : 'uncertain';
   else if (value.deliveryDate) deadlineAssessment = value.deliveryDate <= deadline ? 'estimated_on_time' : 'estimated_late';
   return { ...value, deadlineAssessment };
 }
 
 export function normalizeSmklog(body, p) {
   rateRows(body?.rates);
-  return body.rates.map((r) => rate({ carrier: String(r.carrier ?? 'Unknown'), service: String(r.service ?? 'Unspecified'), costCents: cents(r.amount), currency: currency(r.currency), deliveryDate: null, earliestDate: null, latestDate: null, transitDays: transitDays(r.delivery_days), deliveryWindow: typeof r.delivery_window === 'string' ? r.delivery_window : null, guaranteed: false, providerReportedDate: isoDate(r.delivery_estimated_date) }, p.deadline));
+  return body.rates.map((r) => rate({ carrier: String(r.carrier ?? 'Unknown'), service: String(r.service ?? 'Unspecified'), costCents: cents(r.amount), currency: currency(r.currency), deliveryDate: null, earliestDate: null, latestDate: null, transitDays: transitDays(r.delivery_days), deliveryWindow: typeof r.delivery_window === 'string' ? r.delivery_window : null, guaranteed: false, providerReportedDate: isoDate(r.delivery_estimated_date) }, p));
 }
 
 export function normalizeEasyPost(body, prediction, p) {
@@ -113,14 +119,14 @@ export function normalizeEasyPost(body, prediction, p) {
     const entry = matchingPrediction(r, body.rates, prediction);
     const date = entry?.easypost_time_in_transit_data?.planned_ship_date === p.pickupTime.slice(0, 10)
       ? isoDate(entry.easypost_time_in_transit_data.easypost_estimated_delivery_date) : null;
-    return rate({ carrier: String(r.carrier ?? 'Unknown'), service: String(r.service ?? 'Unspecified'), costCents: cents(r.rate), currency: currency(r.currency), deliveryDate: date, earliestDate: null, latestDate: null, transitDays: transitDays(r.est_delivery_days), deliveryWindow: null, guaranteed: false, providerReportedDate: isoDate(r.delivery_date) }, p.deadline);
+    return rate({ carrier: String(r.carrier ?? 'Unknown'), service: String(r.service ?? 'Unspecified'), costCents: cents(r.rate), currency: currency(r.currency), deliveryDate: date, earliestDate: null, latestDate: null, transitDays: transitDays(r.est_delivery_days), deliveryWindow: null, guaranteed: false, providerReportedDate: isoDate(r.delivery_date) }, p);
   });
 }
 
 export function normalizeAfterShip(body, p) {
   if (!body?.data || typeof body.data !== 'object' || Array.isArray(body.data)) throw new SyntaxError('AfterShip returned an unrecognized prediction response.');
   const d = body.data;
-  return [rate({ carrier: String(d.slug ?? p.carrier), service: String(d.service_type_name ?? (p.service || 'Carrier prediction')), costCents: null, currency: null, deliveryDate: isoDate(d.estimated_delivery_date), earliestDate: isoDate(d.estimated_delivery_date_min), latestDate: isoDate(d.estimated_delivery_date_max), transitDays: null, deliveryWindow: null, guaranteed: false, confidenceCode: d.confidence_code ?? null }, p.deadline)];
+  return [rate({ carrier: String(d.slug ?? p.carrier), service: String(d.service_type_name ?? (p.service || 'Carrier prediction')), costCents: null, currency: null, deliveryDate: isoDate(d.estimated_delivery_date), earliestDate: isoDate(d.estimated_delivery_date_min), latestDate: isoDate(d.estimated_delivery_date_max), transitDays: null, deliveryWindow: null, guaranteed: false, confidenceCode: d.confidence_code ?? null }, p)];
 }
 
 class ProviderError extends Error {
@@ -206,15 +212,21 @@ export async function runProvider(id, input, { env = {}, fetcher = fetch, now = 
 }
 
 export function createComparisonRunner(options = {}) {
-  const cache = new Map();
-  const blocked = new Set();
-  let config = '';
+  // Each configuration owns its own caches and denial state. An old request can
+  // finish after rotation, but must never evict or block the replacement epoch.
+  let state = { config: null, cache: new Map(), blocked: new Set() };
   return async (input, selected = providers) => {
     const p = validateParcel(input);
     if (!Array.isArray(selected) || !selected.length || new Set(selected).size !== selected.length || selected.some((id) => !providers.includes(id))) throw new Error('Select valid providers.');
-    const env = options.env ?? {};
+    // Snapshot before the first await so all providers in this comparison use
+    // the same credentials and activation flags, even if env changes mid-run.
+    // The middleware uses a get-only Proxy, so object spread would silently
+    // drop every setting. Read the supported fields explicitly, once each.
+    const env = Object.fromEntries(['SMKLOG_ENABLED', 'EASYPOST_TEST_API_KEY', 'AFTERSHIP_API_KEY', 'AFTERSHIP_EDD_ENABLED']
+      .map((key) => [key, options.env?.[key]]));
     const currentConfig = JSON.stringify([env.SMKLOG_ENABLED, env.EASYPOST_TEST_API_KEY, env.AFTERSHIP_API_KEY, env.AFTERSHIP_EDD_ENABLED]);
-    if (config !== currentConfig) { cache.clear(); blocked.clear(); config = currentConfig; }
+    if (state.config !== currentConfig) state = { config: currentConfig, cache: new Map(), blocked: new Set() };
+    const { cache, blocked } = state;
     const results = [];
     for (const id of selected) {
       const key = JSON.stringify([id, p]);
@@ -227,9 +239,9 @@ export function createComparisonRunner(options = {}) {
         results.push({ provider: id, name: names[id], status: 'access_blocked', mode: id === 'easypost' ? 'test' : 'live', checkedAt: new Date().toISOString(), durationMs: 0, traces: [], rates: [], notices: ['Access was denied earlier in this server session. Further calls are disabled; restore provider access before restarting.'], cached: false });
         continue;
       }
-      const promise = runProvider(id, p, options).then((result) => {
+      const promise = runProvider(id, p, { ...options, env }).then((result) => {
         if (['access_denied', 'rate_limited'].includes(result.status)) blocked.add(id);
-        if (!result.traces.length) cache.delete(key);
+        if (!result.traces.length && cache.get(key)?.promise === promise) cache.delete(key);
         return result;
       });
       if (cache.size >= 100) cache.delete(cache.keys().next().value);
