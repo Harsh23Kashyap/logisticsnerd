@@ -116,10 +116,11 @@ class Quote:
             )
         return quantity * self.price_cents
 
-    def validate_at(self, now: datetime, deadline: date, currency: str) -> None:
-        """Revalidate validity and delivery using today's UTC calendar date."""
+    def validate_at(self, now: datetime, deadline: date | None, currency: str) -> None:
+        """Check quote terms and delivery dates. A missing deadline removes the upper date limit."""
         _aware("now", now)
-        _date("deadline", deadline)
+        if deadline is not None:
+            _date("deadline", deadline)
         _currency(currency)
         failures = []
         if self.currency != currency:
@@ -139,7 +140,7 @@ class Quote:
             failures.append(
                 f"Quote {self.id} delivery {self.expected_date.isoformat()} is before current UTC date {utc_today.isoformat()}."
             )
-        if self.expected_date > deadline:
+        if deadline is not None and self.expected_date > deadline:
             failures.append(
                 f"Quote {self.id} delivery {self.expected_date.isoformat()} is after deadline {deadline.isoformat()}."
             )
@@ -184,7 +185,7 @@ def select_quotes(
     quotes: tuple[Quote, ...],
     *,
     now: datetime,
-    deadline: date,
+    deadline: date | None,
     currency: str,
     budget_cents: int | None,
 ) -> Recommendation:
@@ -196,7 +197,8 @@ def select_quotes(
     """
     _integer("needed", needed)
     _aware("now", now)
-    _date("deadline", deadline)
+    if deadline is not None:
+        _date("deadline", deadline)
     _currency(currency)
     if budget_cents is not None:
         _integer("budget_cents", budget_cents)
@@ -294,6 +296,7 @@ def select_quotes(
         return Recommendation(False, (), 0, tuple(explanations))
 
     allocations = []
+    deadline_fact = f" <= deadline {deadline.isoformat()}" if deadline is not None else "; no required-by date"
     for quote, quantity in zip(candidates, best.quantities):
         if not quantity:
             continue
@@ -302,7 +305,7 @@ def select_quotes(
         provenance = f"{quote.source} estimate, not a supplier commitment" if quote.estimated else "supplier quote"
         explanations.append(
             f"Recommend {quantity} units from {quote.supplier_id} using quote {quote.id}, cost {price} cents {currency}; "
-            f"delivery {quote.expected_date.isoformat()} <= deadline {deadline.isoformat()}; {provenance}."
+            f"delivery {quote.expected_date.isoformat()}{deadline_fact}; {provenance}."
         )
     budget_fact = f" <= budget {budget_cents} cents" if budget_cents is not None else "; no budget limit configured"
     explanations.append(
