@@ -1,44 +1,73 @@
-// Reads a JSON request body with a byte limit and an inactivity deadline.
-// Returns { text } or { error: 'too_large' | 'timeout' | 'aborted' }.
-export const MAX_BODY_BYTES = 16384;
-export const BODY_IDLE_MS = 10000;
+const MAX_BODY_BYTES = 16 * 1024;
+const BODY_IDLE_MS = 10_000;
+const utf8 = new TextDecoder('utf-8', { fatal: true, ignoreBOM: true });
 
 export function readBody(req, { maxBytes = MAX_BODY_BYTES, idleMs = BODY_IDLE_MS } = {}) {
-  return new Promise((resolve) => {
+  return new Promise(resolve => {
     const chunks = [];
     let size = 0;
     let timer;
-    let done = false;
+    let settled = false;
+
+    const removeCloseHandlers = () => {
+      req.off('error', onError);
+      req.off('close', onClose);
+    };
     const finish = (result) => {
-      if (done) return;
-      done = true;
+      if (settled) return;
+      settled = true;
       clearTimeout(timer);
       req.off('data', onData);
       req.off('end', onEnd);
-      req.off('error', onError);
-      req.off('close', onClose);
+      if (result.error === 'timeout' || result.error === 'too_large') {
+        // Handle a late stream error until the rejection closes the connection.
+        req.resume();
+      } else {
+        removeCloseHandlers();
+      }
       resolve(result);
     };
-    const arm = () => { clearTimeout(timer); timer = setTimeout(() => finish({ error: 'timeout' }), idleMs); };
+    const resetTimer = () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => finish({ error: 'timeout' }), idleMs);
+    };
     const onData = (chunk) => {
       size += chunk.length;
       if (size > maxBytes) return finish({ error: 'too_large' });
       chunks.push(chunk);
-      arm();
+      resetTimer();
     };
-    const onEnd = () => finish({ text: Buffer.concat(chunks).toString('utf8') });
+    const onEnd = () => {
+      try {
+        finish({ text: utf8.decode(Buffer.concat(chunks)) });
+      } catch {
+        finish({ error: 'invalid_utf8' });
+      }
+    };
     const onError = () => finish({ error: 'aborted' });
-    const onClose = () => { if (!req.complete) finish({ error: 'aborted' }); };
-    req.on('data', onData);
-    req.on('end', onEnd);
+    const onClose = () => {
+      finish({ error: 'aborted' });
+      removeCloseHandlers();
+    };
+
+    if (req.destroyed) return finish({ error: 'aborted' });
     req.on('error', onError);
-    req.on('close', onClose);
-    arm();
+    req.once('close', onClose);
+    req.once('end', onEnd);
+    req.on('data', onData);
+    resetTimer();
   });
 }
 
-export function bodyFailure(error, noun) {
-  if (error === 'too_large') return [413, `The ${noun} request is too large.`];
-  if (error === 'timeout') return [408, `The ${noun} request took too long to arrive.`];
-  return [400, `The ${noun} request was interrupted.`];
+export function sendBodyFailure(send, error, noun) {
+  switch (error) {
+    case 'too_large':
+      return send(413, { error: `The ${noun} request is too large.` }, { Connection: 'close' });
+    case 'timeout':
+      return send(408, { error: `The ${noun} request took too long to arrive.` }, { Connection: 'close' });
+    case 'invalid_utf8':
+      return send(400, { error: `Send a valid JSON ${noun} request.` });
+    default:
+      return send(400, { error: `The ${noun} request was interrupted.` });
+  }
 }

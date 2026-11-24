@@ -1,7 +1,7 @@
 import { createEstimateRunner, estimateAccess, EstimateError } from './procurement.mjs';
 import { CacheError, createRedisCache } from './redis-cache.mjs';
 import { requestOriginAllowed } from './request-origin.mjs';
-import { readBody, bodyFailure } from './read-body.mjs';
+import { readBody, sendBodyFailure } from './read-body.mjs';
 
 export function procurementMiddleware(getEnv, rules, catalog, { bodyIdleMs } = {}) {
   const cache = createRedisCache({ getEnv });
@@ -9,7 +9,11 @@ export function procurementMiddleware(getEnv, rules, catalog, { bodyIdleMs } = {
   const middleware = async (req, res, next) => {
     const path = req.url?.split('?')[0];
     if (!['/api/procurement/status', '/api/procurement/estimates'].includes(path)) return next();
-    const send = (status, data) => { if (!res.destroyed) { res.writeHead(status, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }); res.end(JSON.stringify(data)); } };
+    const send = (status, data, headers) => {
+      if (res.destroyed || res.writableEnded) return;
+      res.writeHead(status, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', ...headers });
+      res.end(JSON.stringify(data));
+    };
     if (path === '/api/procurement/status' && req.method === 'GET') {
       const modelConfigured = estimateAccess(getEnv()).configured;
       const cacheConfigured = cache.configured();
@@ -23,13 +27,9 @@ export function procurementMiddleware(getEnv, rules, catalog, { bodyIdleMs } = {
     res.once('close', cancel);
     try {
       const read = await readBody(req, { idleMs: bodyIdleMs });
-      if (read.error) {
-        const [status, error] = bodyFailure(read.error, 'procurement');
-        return send(status, { error });
-      }
-      const content = read.text;
+      if (read.error) return sendBodyFailure(send, read.error, 'procurement');
       let body;
-      try { body = JSON.parse(content); } catch { return send(400, { error: 'Send a valid JSON procurement request.' }); }
+      try { body = JSON.parse(read.text); } catch { return send(400, { error: 'Send a valid JSON procurement request.' }); }
       send(200, await run(body, { signal: controller.signal }));
     } catch (error) {
       const safe = error instanceof EstimateError || error instanceof CacheError ? error : new EstimateError('server_error', 'The server could not generate estimates. Please retry.', 500);
