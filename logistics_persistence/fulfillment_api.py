@@ -28,10 +28,6 @@ class ReserveInput(Command):
     as_of: date | None = None
 
 
-class ReleaseInput(Command):
-    pass
-
-
 class DispatchInput(Command):
     carrier: Text
     as_of: date
@@ -52,7 +48,7 @@ class TrackingInput(Command):
 
 
 def register_routes(app: FastAPI, connection: Callable, public_json: Callable) -> None:
-    from . import fulfillment
+    from . import fulfillment, stock
 
     prefix = '/api/fulfillment'
 
@@ -90,11 +86,8 @@ def register_routes(app: FastAPI, connection: Callable, public_json: Callable) -
 
     @app.post(prefix + '/reservations', status_code=201)
     def reserve_stock(body: ReserveInput, conn: Any = Depends(connection)) -> Any:
-        payload = body.model_dump()
-        if body.as_of is not None:
-            payload['as_of'] = body.as_of.isoformat()
-        return public_json(fulfillment.reserve_stock(conn, **payload))
+        return public_json(fulfillment.reserve_stock(conn, **body.model_dump()))
 
     @app.post(prefix + '/reservations/{reservation_id}/release')
-    def release_reservation(reservation_id: PositivePathInt, body: ReleaseInput, conn: Any = Depends(connection)) -> Any:
-        return public_json(fulfillment.release_reservation(conn, reservation_id=reservation_id, **body.model_dump()))
+    def release_reservation(reservation_id: PositivePathInt, body: Command, conn: Any = Depends(connection)) -> Any:
+        return public_json(stock.release(conn, reservation_id, body.idempotency_key))

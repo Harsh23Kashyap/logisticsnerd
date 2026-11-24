@@ -356,6 +356,13 @@ def reserve(conn, item_id, quantity, order_ref, idempotency_key, as_of=None,
         demand = _demand(c, demand_line_id, order_ref, item_id)
         loc = _location(c, location_id)
         _lock_resources(c, [(item_id, loc)])
+        if demand is not None:
+            from .purchasing import _demand_position
+            # Protect stock due from approved purchases. Check after request replay.
+            position = _demand_position(c, demand["id"])
+            remaining = demand["quantity"] - position["shipped"] - position["reserved"] - position["inbound"]
+            if quantity > remaining:
+                raise ValidationError("reservation exceeds remaining customer demand")
         if _tracked(c, item_id):
             if as_of is None:
                 raise ValidationError("as_of is required for a lot-tracked reservation")
@@ -385,12 +392,22 @@ def _reservation(conn, reservation_id, active=True):
     return row
 
 
+def _planned_quantity(conn, reservation_id):
+    return _row(conn, """SELECT COALESCE(sum(l.quantity),0)::bigint AS quantity
+        FROM logistics.shipment_lines l WHERE l.reservation_id=%s
+        AND NOT EXISTS (SELECT 1 FROM logistics.shipment_dispatches d WHERE d.shipment_id=l.shipment_id)""",
+        (reservation_id,))["quantity"]
+
+
 def release(conn, reservation_id, idempotency_key):
     _int("reservation_id", reservation_id)
     def work(c):
         r = _reservation(c, reservation_id)
         _lock_resources(c, [(r["item_id"], r["location_id"])])
         r = _reservation(c, reservation_id)
+        # Draft lines are permanent. Keep the reservation until dispatch.
+        if _planned_quantity(c, reservation_id):
+            raise Conflict("reservation is assigned to a draft shipment")
         c.execute("UPDATE logistics.stock_reservations SET status='released' WHERE id=%s", (reservation_id,))
         return {"reservation_id": reservation_id, "released": r["quantity"]-r["quantity_shipped"], "status": "released"}
     return run_command(conn, "stock.release", idempotency_key, {"reservation_id": reservation_id}, work)
@@ -489,7 +506,7 @@ def add_shipment_line(conn, shipment_id, reservation_id, quantity, idempotency_k
         r = _reservation(c, reservation_id)
         _lock_resources(c, [(r["item_id"], r["location_id"])])
         r = _reservation(c, reservation_id)
-        planned = _row(c, "SELECT COALESCE(sum(l.quantity),0)::bigint quantity FROM logistics.shipment_lines l WHERE l.reservation_id=%s AND NOT EXISTS(SELECT 1 FROM logistics.shipment_dispatches d WHERE d.shipment_id=l.shipment_id)", (reservation_id,))["quantity"]
+        planned = _planned_quantity(c, reservation_id)
         if quantity > r["quantity"]-r["quantity_shipped"]-planned:
             raise InsufficientStock("shipment line exceeds reservation remainder not already on a draft")
         if not _row(c, "SELECT 1 FROM logistics.shipments WHERE id=%s FOR UPDATE", (shipment_id,)):

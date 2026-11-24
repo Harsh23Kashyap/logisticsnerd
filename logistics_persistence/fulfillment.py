@@ -168,22 +168,14 @@ def create_shipment(conn, *, shipment_number, order_ref, idempotency_key):
 
 
 def reserve_stock(conn, *, demand_line_id, quantity, idempotency_key, location_id=None, as_of=None):
-    """Reserve free stock for one customer order line.
-
-    Reserves what is free and reports the shortage; it creates no purchase and no stock.
-    The database refuses a reservation above what the order line still needs, and the
-    check runs inside the stock command so a retry with the same key replays safely.
-    """
-    line = conn.execute("SELECT id,item_id,external_key FROM logistics.demand_lines WHERE id=%s",
+    """Reserve free stock and return the order reference used by Shipping."""
+    line = conn.execute("SELECT item_id,external_key,order_ref FROM logistics.demand_lines WHERE id=%s",
                         (demand_line_id,)).fetchone()
     if line is None:
         raise NotFound('Customer order line not found')
-    return stock.reserve(conn, line["item_id"], quantity, line["external_key"], idempotency_key, as_of,
-                         location_id=location_id, demand_line_id=demand_line_id)
-
-
-def release_reservation(conn, *, reservation_id, idempotency_key):
-    return stock.release(conn, reservation_id, idempotency_key)
+    result = stock.reserve(conn, line["item_id"], quantity, line["external_key"], idempotency_key,
+                           as_of=as_of, location_id=location_id, demand_line_id=demand_line_id)
+    return {**result, "order_ref": line["order_ref"]}
 
 
 def add_shipment_line(conn, *, shipment_id, reservation_id, quantity, idempotency_key):

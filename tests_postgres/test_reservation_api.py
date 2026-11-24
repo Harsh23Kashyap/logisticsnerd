@@ -1,11 +1,11 @@
 """Real PostgreSQL tests for reserving and releasing stock through the fulfillment HTTP API."""
 from concurrent.futures import ThreadPoolExecutor
-from datetime import date
+from datetime import date, datetime, timedelta, timezone
 from threading import Barrier
 
 from fastapi.testclient import TestClient
 
-from logistics_persistence import stock
+from logistics_persistence import purchasing, stock
 from logistics_persistence.api import Settings, create_app
 from .common import PostgresCase
 
@@ -86,6 +86,41 @@ class ReservationApiTests(PostgresCase):
         self.reserve(self.demand_a, 6)
         self.assertEqual(self.levels(), (20, 6, 14))
 
+    def test_request_over_remaining_demand_is_refused_with_limited_stock(self):
+        self.open(1)
+        self.reserve(self.demand_a, 7, status=422)
+        self.assertEqual((self.rows(), self.levels()), (0, (1, 0, 1)))
+
+    def test_reserve_cannot_take_demand_covered_by_an_approved_purchase(self):
+        now = datetime.now(timezone.utc)
+        supplier_id = self.bind('supplier', 'supplier')
+        actor_id = self.bind('actor', 'buyer', {'can_approve_purchases': True})
+        quote = purchasing.create_quote(
+            self.conn, supplier_id=supplier_id, item_id=self.item,
+            quantity_priced=6, capacity_quantity=6, price_minor=100,
+            pricing_kind='unit', currency='USD', expires_at=now + timedelta(days=3),
+            expected_date=now.date() + timedelta(days=1), idempotency_key=self.key('quote'))
+        draft = purchasing.create_purchase_order(
+            self.conn, supplier_id=supplier_id, currency='USD', idempotency_key=self.key('purchase'))
+        line = purchasing.add_purchase_line(
+            self.conn, purchase_order_id=draft['id'], quote_version_id=quote['id'],
+            quantity=6, idempotency_key=self.key('line'))
+        allocation = purchasing.allocate_purchase_line(
+            self.conn, po_line_id=line['id'], demand_line_id=self.demand_a,
+            quantity=6, idempotency_key=self.key('allocation'))
+        purchasing.approve_purchase_order(
+            self.conn, purchase_order_id=draft['id'], actor_id=actor_id, idempotency_key=self.key('approve'))
+        self.open(1)
+        self.reserve(self.demand_a, 1, status=422)
+        self.assertEqual(self.levels(), (1, 0, 1))
+        stock.receive_delivery(self.conn, 'supplier-delivery', [{
+            'po_line_id': line['id'], 'item_id': self.item, 'location_id': self.location,
+            'quantity': 6, 'allocations': [{
+                'purchase_allocation_id': allocation['id'], 'demand_line_id': self.demand_a, 'quantity': 6,
+            }],
+        }], self.key('receive'), now.date())
+        self.assertEqual(self.levels(), (7, 6, 1))
+
     def test_fully_reserved_line_refuses_another_reservation(self):
         self.open(20)
         self.reserve(self.demand_a, 6)
@@ -133,10 +168,28 @@ class ReservationApiTests(PostgresCase):
         self.assertEqual(self.reserve(self.demand_b, 4)['reserved'], 4)
         self.assertEqual(self.levels(), (6, 4, 2))
 
+    def test_release_keeps_a_draft_shippable_and_allows_release_after_dispatch(self):
+        self.open(10)
+        reservation = self.reserve(self.demand_a, 4)
+        rid = reservation['reservation_id']
+        shipment = self.call('/shipments', dict(shipment_number='S1',
+                             order_ref='customer-order-a', idempotency_key=self.key('ship')), 201)['shipment_id']
+        self.call(f'/shipments/{shipment}/lines', dict(reservation_id=rid, quantity=2,
+                  idempotency_key=self.key('line')), 201)
+        release = dict(idempotency_key=self.key('release'))
+        self.call(f'/reservations/{rid}/release', release, 409)
+        self.assertEqual(self.levels(), (10, 4, 6))
+        self.call(f'/shipments/{shipment}/dispatch', dict(carrier='Example carrier',
+                  as_of=date.today().isoformat(), tracking_ref='T1', idempotency_key=self.key('dispatch')), 200)
+        result = self.call(f'/reservations/{rid}/release', release, 200)
+        self.assertEqual(result['released'], 2)
+        self.assertEqual(self.levels(), (8, 0, 8))
+
     def test_reserve_then_ship_through_http_changes_on_hand_once(self):
         self.open(10)
-        rid = self.reserve(self.demand_a, 4)['reservation_id']
-        shipment = self.call('/shipments', dict(shipment_number='S2', order_ref='customer-order-a',
+        reservation = self.reserve(self.demand_a, 4)
+        rid = reservation['reservation_id']
+        shipment = self.call('/shipments', dict(shipment_number='S2', order_ref=reservation['order_ref'],
                              idempotency_key=self.key('ship')), 201)['shipment_id']
         self.call(f'/shipments/{shipment}/lines', dict(reservation_id=rid, quantity=4,
                   idempotency_key=self.key('line')), 201)
@@ -176,6 +229,18 @@ class ReservationApiTests(PostgresCase):
         stock.open_stock(self.conn, self.item, 5, self.key('open'), self.key('open'), location_id=other)
         self.call('/reservations', dict(demand_line_id=self.demand_a, quantity=1, idempotency_key=self.key('r')), 422)
         self.assertEqual(self.rows(), 0)
+
+    def test_reservation_uses_the_date_to_skip_expired_stock(self):
+        stock.track_lots(self.conn, self.item, self.key('track'))
+        stock.open_stock(self.conn, self.item, 4, 'old stock', self.key('open'),
+                         location_id=self.location, lot_number='expired', expiry_date='2026-10-26')
+        fresh = stock.open_stock(self.conn, self.item, 2, 'new stock', self.key('open'),
+                                 location_id=self.location, lot_number='fresh', expiry_date='2026-10-28')
+        self.reserve(self.demand_a, 3, status=422)
+        result = self.reserve(self.demand_a, 3, as_of='2026-10-27')
+        self.assertEqual((result['reserved'], result['shortage']), (2, 1))
+        self.assertEqual(result['allocations'], [{'lot_id': fresh['lot_id'], 'quantity': 2}])
+        self.assertEqual(self.levels(), (6, 2, 4))
 
     def test_release_body_is_strict(self):
         self.open(10)
