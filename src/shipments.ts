@@ -2,6 +2,7 @@ import '@fontsource-variable/dm-sans';
 import './styles.css';
 import './shipments.css';
 import { demoNavigation } from './demo-navigation';
+import { escapeHtml as escape } from './escape-html';
 
 type Values = Record<string, unknown>;
 interface Reference { id: number; kind: string; snapshot: Values; external_key: string; valid_to: string | null; local_archived?: boolean; }
@@ -18,7 +19,6 @@ interface Workspace { orders: Order[]; reservations: Reservation[]; shipments: S
 
 const app = document.querySelector<HTMLDivElement>('#app')!;
 const endpoint = '/api/fulfillment';
-const escape = (value: unknown) => String(value ?? '').replace(/[&<>"']/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[character]!));
 const text = (fields: FormData, name: string) => String(fields.get(name) ?? '').trim();
 const number = (fields: FormData, name: string) => {
   const value = Number(text(fields, name));

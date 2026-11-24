@@ -2,6 +2,7 @@ import '@fontsource-variable/dm-sans';
 import './styles.css';
 import './shipping-lab.css';
 import { brandMark, icon } from './icons';
+import { escapeHtml as escape } from './escape-html';
 
 interface Access { id: string; name: string; ready: boolean; detail: string; docs: string }
 interface Rate {
@@ -20,7 +21,6 @@ interface Report {
   results: ProviderResult[];
 }
 
-const escape = (value: unknown) => String(value ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
 const tomorrow = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
 const deadline = new Date(Date.now() + 8 * 86400000).toISOString().slice(0, 10);
 const app = document.querySelector<HTMLDivElement>('#app')!;

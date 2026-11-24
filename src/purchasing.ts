@@ -2,6 +2,7 @@ import '@fontsource-variable/dm-sans';
 import './styles.css';
 import './purchasing.css';
 import { demoNavigation } from './demo-navigation';
+import { escapeHtml as escape } from './escape-html';
 
 type Row = Record<string, unknown>;
 interface Binding extends Row { id: number; kind: string; external_key: string; snapshot: Row; valid_to: string | null; }
@@ -23,7 +24,6 @@ let failed = false;
 // Pending request identities survive network failures while this page remains open.
 // Refreshing the page clears them. A delivery_ref also identifies physical goods.
 const pending = new Map<string, string>();
-const escape = (value: unknown) => String(value ?? '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]!));
 const field = (name: string, label: string, type = 'text', extra = '') => `<label>${label}<input name="${name}" type="${type}" required ${extra}></label>`;
 const options = (rows: Row[], label: (row: Row) => string) => rows.map(row => `<option value="${escape(row.id)}">${escape(label(row))}</option>`).join('');
 const select = (name: string, label: string, rows: Row[], format: (row: Row) => string) => `<label>${label}<select name="${name}" required><option value="">Select…</option>${options(rows, format)}</select></label>`;

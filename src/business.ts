@@ -2,6 +2,7 @@ import '@fontsource-variable/dm-sans';
 import './styles.css';
 import './business.css';
 import { demoNavigation } from './demo-navigation';
+import { escapeHtml as escape } from './escape-html';
 
 type FieldType = 'text' | 'integer' | 'money' | 'boolean' | 'date' | 'reference';
 type Values = Record<string, unknown>;
@@ -13,7 +14,6 @@ interface BusinessRecord { id: number; version: number; archived: boolean; value
 
 const app = document.querySelector<HTMLDivElement>('#app')!;
 const endpoint = '/api/business';
-const escape = (value: unknown) => String(value ?? '').replace(/[&<>"']/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[character]!));
 let loading = true;
 let catalog: Catalog | undefined;
 let records = new Map<string, BusinessRecord[]>();
