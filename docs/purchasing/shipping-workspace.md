@@ -60,10 +60,18 @@ The pre-existing `/api/shipping` service remains the rate-comparison demo.
 | GET `/workspace` | Orders and demand progress, reservations, draft planning totals, shipment summaries, stock and display references |
 | GET `/shipments` | `{shipments: [...]}` with derived state and line totals |
 | GET `/shipments/{id}` | Shipment, lines, reservation/location links, stock-movement traces and events |
+| POST `/reservations` | `{demand_line_id, quantity, location_id?, as_of?, idempotency_key}` → reservation, order reference and shortage (201) |
+| POST `/reservations/{id}/release` | `{idempotency_key}` → released quantity (200) |
 | POST `/shipments` | `{shipment_number, order_ref, idempotency_key}` → draft (201) |
 | POST `/shipments/{id}/lines` | `{reservation_id, quantity, idempotency_key}` → saved line (201) |
 | POST `/shipments/{id}/dispatch` | `{carrier, as_of, tracking_ref?, label_ref?, idempotency_key}` → stock dispatch result (200) |
 | POST `/shipments/{id}/events` | `{event, occurred_at, detail?, idempotency_key}` → event and derived state (201) |
+
+A reserve request must fit the demand left after shipments, active reservations
+and approved inbound purchases. If free stock is less than the requested
+quantity, the result includes the shortage. Use `as_of` for lot-tracked stock.
+A reservation assigned to a draft shipment returns 409 on release. After
+dispatch, any unshipped remainder can be released.
 
 `as_of` is an ISO date. `occurred_at` must include a timezone. Carrier event
 values are `in_transit`, `out_for_delivery`, `delivery_failed`, `delivered` and

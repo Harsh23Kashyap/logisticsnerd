@@ -167,6 +167,17 @@ def create_shipment(conn, *, shipment_number, order_ref, idempotency_key):
     return stock.create_shipment(conn, shipment_number, idempotency_key, order_ref=order_ref)
 
 
+def reserve_stock(conn, *, demand_line_id, quantity, idempotency_key, location_id=None, as_of=None):
+    """Reserve free stock and return the order reference used by Shipping."""
+    line = conn.execute("SELECT item_id,external_key,order_ref FROM logistics.demand_lines WHERE id=%s",
+                        (demand_line_id,)).fetchone()
+    if line is None:
+        raise NotFound('Customer order line not found')
+    result = stock.reserve(conn, line["item_id"], quantity, line["external_key"], idempotency_key,
+                           as_of=as_of, location_id=location_id, demand_line_id=demand_line_id)
+    return {**result, "order_ref": line["order_ref"]}
+
+
 def add_shipment_line(conn, *, shipment_id, reservation_id, quantity, idempotency_key):
     _require_shipment(conn, shipment_id)
     return stock.add_shipment_line(conn, shipment_id, reservation_id, quantity, idempotency_key)
